@@ -1,0 +1,12 @@
+[submodule "vendor/lua"]
+	path = vendor/lua
+	url = https://github.com/walterschell/Lua
+[submodule "vendor/glew"]
+	path = vendor/glew
+	url = https://github.com/Perlmint/glew-cmake
+[submodule "vendor/glfw"]
+	path = vendor/glfw
+	url = https://github.com/glfw/glfw
+[submodule "vendor/stb"]
+	path = vendor/stb
+	url = https://github.com/nothings/stb
