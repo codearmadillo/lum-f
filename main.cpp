@@ -13,7 +13,7 @@
  */
 const char* code = R"(
     lumiere.game.start = function()
-        print("hello from Lua!")
+        print("Hello from Lua!")
     end
 )";
 
