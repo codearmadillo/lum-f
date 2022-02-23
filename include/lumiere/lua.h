@@ -20,13 +20,21 @@ namespace LuM {
                     static StateFactory instance;
                     return instance;
                 }
+                static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize)
+                {
+                    if (nsize == 0) {
+                        free(ptr);
+                        return nullptr;
+                    }
+                    return realloc(ptr, nsize);
+                }
                 lua_State* lua;
             private:
-            StateFactory(): lua(nullptr) { }
+                StateFactory(): lua(nullptr) { }
         };
         void StateOpen() {
             if(StateFactory::GetInstance().lua == nullptr) {
-                StateFactory::GetInstance().lua = luaL_newstate();
+                StateFactory::GetInstance().lua = lua_newstate(StateFactory::LuaAllocator, nullptr);
             } else {
                 std::cerr << "Attempted to open lua_State but such state was already open." << std::endl;
             }

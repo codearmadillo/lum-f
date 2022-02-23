@@ -10,7 +10,7 @@ set(STBI_NO_LINEAR TRUE)
 #######################################################
 ### Add executable files
 #######################################################
-add_executable(${CMAKE_PROJECT_NAME} main.cpp include/lumiere/lua.h include/lumiere/utils/string.h include/lumiere/core.h)
+add_executable(${CMAKE_PROJECT_NAME} main.cpp include/lumiere/lua.h include/lumiere/utils/string.h include/lumiere/core.h include/lumiere/logger.h)
 
 #######################################################
 ### Add subdirectories

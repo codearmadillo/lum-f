@@ -7,6 +7,7 @@
 #include "stb_image.h"
 
 #include "lumiere/lua.h"
+#include "lumiere/logger.h"
 
 /**
  * Testing Lua script
@@ -16,15 +17,16 @@ const char* code = R"(
 )";
 
 namespace LuM {
-
     int main() {
-        LuaBridge::StateOpen();
 
+        Logger::GetInstance().Write("hello", LOG_INFO);
+
+        /**
+         * Lua
+         */
+        LuaBridge::StateOpen();
         LuaBridge::OpenLibraries();
         LuaBridge::ProtectedLoadScript(code);
-
-        LuaBridge::DumpStack();
-
         LuaBridge::StateClose();
 
         return 0;
