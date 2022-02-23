@@ -12,41 +12,22 @@
  * Testing Lua script
  */
 const char* code = R"(
-    lumiere.game.start = function()
-        print("Hello from Lua!")
-    end
+    print("Hello from Lua")
 )";
 
 namespace LuM {
 
     int main() {
+        LuaBridge::StateOpen();
 
-        auto lua = luaL_newstate();
+        LuaBridge::OpenLibraries();
+        LuaBridge::ProtectedLoadScript(code);
 
-        LuaBridge::OpenLibraries(lua);
+        LuaBridge::DumpStack();
 
-        LuaBridge::AddNestedMember(lua, "game.config", [](lua_State* lua){
-            lua_pushcfunction(lua, [](lua_State* lua){
-                std::cout << "Hello from C++!" << std::endl;
-                return 0;
-            });
-        });
-        if(LuaBridge::GetNestedMember(lua, "game.config")) {
-            lua_call(lua, 0, 0);
-        }
-
-        LuaBridge::DumpStack(lua);
-
-        luaL_dostring(lua, code);
-
-        if(LuaBridge::GetNestedMember(lua, "game.start")) {
-            lua_call(lua, 0, 0);
-        }
-
-        lua_close(lua);
+        LuaBridge::StateClose();
 
         return 0;
-
     }
 }
 

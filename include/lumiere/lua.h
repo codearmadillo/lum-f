@@ -12,11 +12,40 @@ extern "C" {
 
 namespace LuM {
     namespace LuaBridge {
+        class StateFactory {
+            public:
+                StateFactory(StateFactory const&) = delete;
+                void operator=(StateFactory const&) = delete;
+                static StateFactory& GetInstance() {
+                    static StateFactory instance;
+                    return instance;
+                }
+                lua_State* lua;
+            private:
+            StateFactory(): lua(nullptr) { }
+        };
+        void StateOpen() {
+            if(StateFactory::GetInstance().lua == nullptr) {
+                StateFactory::GetInstance().lua = luaL_newstate();
+            } else {
+                std::cerr << "Attempted to open lua_State but such state was already open." << std::endl;
+            }
+        }
+        lua_State* StateGet() {
+            if(StateFactory::GetInstance().lua == nullptr) {
+                throw std::runtime_error("Attempted to get lua_State but not state was open.");
+            }
+            return StateFactory::GetInstance().lua;
+        }
+        void StateClose() {
+            lua_close(StateGet());
+        }
         /**
+         *
          * Dumps Lua stack
-         * @param lua
          */
-        void DumpStack(lua_State* lua) {
+        void DumpStack() {
+            const auto lua = LuaBridge::StateGet();
             int top = lua_gettop(lua);
             for (int i = 1; i <= top; i++) {
                 std::cout << luaL_typename(lua, i) << ": ";
@@ -45,7 +74,14 @@ namespace LuM {
                 std::cout << std::endl;
             }
         }
-        void AddNestedMember(lua_State* lua, const char* memberName, std::function<void(lua_State*)> const& callback) {
+        /**
+         * Adds a scoped member
+         * @param memberName
+         * @param callback Used to push the actual value of the member. Ensure this operation is stack-safe (the result should be increase 1 in stack size)
+         */
+        void AddNestedMember(const char* memberName, std::function<void(lua_State*)> const& callback) {
+
+            const auto lua = LuaBridge::StateGet();
 
             /**
              * Explode member namespace
@@ -135,12 +171,12 @@ namespace LuM {
         }
         /**
          * Traverses Lua global scope, and finds a member
-         * @param lua
          * @param memberName
          * @return Returns a status flag indicating whether or not was the traverse successful
          */
-        bool GetNestedMember(lua_State* lua, const char* memberName) {
+        bool GetNestedMember(const char* memberName) {
 
+            const auto lua = LuaBridge::StateGet();
             auto scopes = Utils::String::Explode(memberName, '.');
 
             /**
@@ -206,35 +242,49 @@ namespace LuM {
              */
 
         }
-        void Call(lua_State* lua, const char* method, unsigned int nargs = 0, unsigned int nresults = 0) {
-            lua_getglobal(lua, Constants::LUA_LIBRARY_NAME);
-            lua_getfield(lua, -1, method);
-            if(lua_isnil(lua, -1) || !lua_isfunction(lua, -1)) {
-                std::cerr << "'" << method << "' is 'nil' or is not a callable member of '" << Constants::LUA_LIBRARY_NAME << "' object" << std::endl;
-                // clean stack
-                lua_pop(lua, 1);
-            } else {
-                std::cout << "'" << method << "' is a callable member" << std::endl;
-                lua_call(lua, nargs, nresults);
-            }
-            // remove global from stack
-            lua_pop(lua, 1);
-        }
         /**
          * Opens standard Lua libraries while stopping Garbage collector to optimize performance
          * @param lua
          */
-        void OpenLibraries(lua_State* lua) {
+        void OpenLibraries() {
+            const auto lua = LuaBridge::StateGet();
             lua_gc(lua, LUA_GCSTOP, 0);
             luaL_openlibs(lua);
             lua_gc(lua, LUA_GCRESTART, 0);
         }
         /**
-         * Loads Main.lua file from CWD
-         * @param lua
+         * Performs a protected call and correctly reports errors. Lua expects that everything relevant was pushed onto the stack at this point
+         * @param nargs
+         * @param nresults
          */
-        void LoadSource(lua_State* lua) {
-
+        void ProtectedCall(unsigned int nargs = 0, unsigned int nresults = 0) {
+            const auto lua = LuaBridge::StateGet();
+            const int result = lua_pcall(lua, nargs, nresults, 0);
+            if(result == LUA_OK) {
+                return;
+            } else {
+                const char* error = lua_tostring(lua, -1);
+                if(error == nullptr) {
+                    switch(result) {
+                        case LUA_ERRRUN:
+                            luaL_traceback(lua, lua, "Unexpected runtime error occurred", 1);
+                            break;
+                        case LUA_ERRMEM:
+                            luaL_traceback(lua, lua, "Unexpected memory error occurred", 1);
+                            break;
+                        case LUA_ERRERR:
+                            luaL_traceback(lua, lua, "Unexpected error occurred while running error delegate", 1);
+                            break;
+                    }
+                } else {
+                    luaL_traceback(lua, lua, error, 1);
+                }
+                lua_pop(lua, 1);
+            }
+        }
+        void ProtectedLoadScript(const char* script) {
+            const auto lua = LuaBridge::StateGet();
+            luaL_dostring(lua, script);
         }
     }
 }
