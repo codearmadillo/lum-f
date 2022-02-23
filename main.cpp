@@ -9,24 +9,11 @@
 #include "lumiere/lua.h"
 #include "lumiere/logger.h"
 
-/**
- * Testing Lua script
- */
-const char* code = R"(
-    print("Hello from Lua")
-)";
-
 namespace LuM {
     int main() {
-
-        Logger::GetInstance().Write("hello", LOG_INFO);
-
-        /**
-         * Lua
-         */
         LuaBridge::StateOpen();
         LuaBridge::OpenLibraries();
-        LuaBridge::ProtectedLoadScript(code);
+        LuaBridge::ProtectedExecuteSource();
         LuaBridge::StateClose();
 
         return 0;

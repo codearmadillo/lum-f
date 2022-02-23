@@ -9,6 +9,7 @@ extern "C" {
 #include "lumiere/core.h"
 #include "lumiere/utils/string.h"
 #include <functional>
+#include <filesystem>
 
 namespace LuM {
     namespace LuaBridge {
@@ -290,9 +291,34 @@ namespace LuM {
                 lua_pop(lua, 1);
             }
         }
+        /**
+         * Loads explicit string onto Lua stack and executes it
+         * @param script
+         */
         void ProtectedLoadScript(const char* script) {
             const auto lua = LuaBridge::StateGet();
-            luaL_dostring(lua, script);
+            if(luaL_dostring(lua, script) != LUA_OK) {
+                std::string error = lua_tostring(lua, -1);
+                lua_pop(lua, 1);
+                std::cerr << error << std::endl;
+            }
+        }
+        /**
+         * Loads Main.lua from CWD and executes it
+         */
+        void ProtectedExecuteSource() {
+
+            const auto lua = LuaBridge::StateGet();
+
+            std::filesystem::path dir(std::filesystem::current_path());
+            std::filesystem::path file("main.lua");
+
+            if(luaL_dofile(lua, (dir / file).string().c_str()) != LUA_OK) {
+                std::string error = lua_tostring(lua, -1);
+                lua_pop(lua, 1);
+                std::cerr << error << std::endl;
+            }
+
         }
     }
 }
