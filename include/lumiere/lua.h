@@ -87,8 +87,9 @@ namespace LuM {
          * Adds a scoped member
          * @param memberName
          * @param callback Used to push the actual value of the member. Ensure this operation is stack-safe (the result should be increase 1 in stack size)
+         * @param If true, a global scope (= Library name) is set as entry parameter. If false, it is expected that this scope is already set
          */
-        void AddNestedMember(const char* memberName, std::function<void(lua_State*)> const& callback) {
+        void AddNestedMember(const char* memberName, std::function<void(lua_State*)> const& callback, const bool setScope = true) {
 
             const auto lua = LuaBridge::StateGet();
 
@@ -101,15 +102,17 @@ namespace LuM {
              * Establish structure before adding literal
              * Try to get global namespace. If it doesn't exist, create it
              */
-            lua_getglobal(lua, Constants::LUA_LIBRARY_NAME);
-            if(lua_isnil(lua, 1)) {
-                lua_pop(lua, 1);
-                lua_newtable(lua);
-                lua_setglobal(lua, Constants::LUA_LIBRARY_NAME);
-                lua_getglobal(lua, Constants::LUA_LIBRARY_NAME);
-            } else if (!lua_istable(lua, 1)) {
-                throw std::runtime_error("Tried to get 'library' but it is not a table!");
-            }
+             if(setScope) {
+                 lua_getglobal(lua, Constants::LUA_LIBRARY_NAME);
+                 if(lua_isnil(lua, 1)) {
+                     lua_pop(lua, 1);
+                     lua_newtable(lua);
+                     lua_setglobal(lua, Constants::LUA_LIBRARY_NAME);
+                     lua_getglobal(lua, Constants::LUA_LIBRARY_NAME);
+                 } else if (!lua_istable(lua, 1)) {
+                     throw std::runtime_error("Tried to get 'library' but it is not a table!");
+                 }
+             }
 
             /**
              * Iterate through scopes, and create them inside the global object
@@ -175,15 +178,17 @@ namespace LuM {
                 /**
                  * And finally - reset global
                  */
-                lua_setglobal(lua, Constants::LUA_LIBRARY_NAME);
+                 if(setScope)
+                    lua_setglobal(lua, Constants::LUA_LIBRARY_NAME);
             }
         }
         /**
          * Traverses Lua global scope, and finds a member
          * @param memberName
+         * @param If true, a global scope (= Library name) is set as entry parameter. If false, it is expected that this scope is already set
          * @return Returns a status flag indicating whether or not was the traverse successful
          */
-        bool GetNestedMember(const char* memberName) {
+        bool GetNestedMember(const char* memberName, const bool setScope = true) {
 
             const auto lua = LuaBridge::StateGet();
             auto scopes = Utils::String::Explode(memberName, '.');
@@ -191,11 +196,13 @@ namespace LuM {
             /**
              * Get global object, or throw an error
              */
-            lua_getglobal(lua, Constants::LUA_LIBRARY_NAME);
-            if(lua_isnil(lua, 1)) {
-                std::cerr << "Library '" << Constants::LUA_LIBRARY_NAME << "' is not defined." << std::endl;
-                lua_pop(lua, 1);
-                return false;
+            if(setScope) {
+                lua_getglobal(lua, Constants::LUA_LIBRARY_NAME);
+                if(lua_isnil(lua, 1)) {
+                    std::cerr << "Library '" << Constants::LUA_LIBRARY_NAME << "' is not defined." << std::endl;
+                    lua_pop(lua, 1);
+                    return false;
+                }
             }
 
             int iterator = 0;
@@ -223,33 +230,14 @@ namespace LuM {
                 // move the value from top of the stack behind the traversed tables
                 lua_insert(lua, -(iterator + 2));
                 // cleanup remaining stack values
-                lua_pop(lua, iterator + 1);
+                lua_pop(lua, iterator + (setScope ? 1 : 0));
                 // return a flag
                 return true;
             } else {
                 // otherwise, just cleanup the stack and return false
-                lua_pop(lua, iterator + 1);
+                lua_pop(lua, iterator + (setScope ? 1 : 0));
                 return false;
             }
-
-                /*
-                if(lua_isnil(lua, -1)) {
-                    // Pop the 'nil' value from stack (we will not need it)
-                    lua_pop(lua, 1);
-                    // Create table
-                    lua_pushstring(lua, scope.c_str());
-                    lua_newtable(lua);
-                    lua_settable(lua, -3);
-                    // Get the field again to load it on top of the stack for next iteration
-                    lua_getfield(lua, -1, scope.c_str());
-                } else if (!lua_istable(lua, -1)) {
-                    std::string error = "Tried to get scope '" + scope + "' but it is not a table!";
-                    throw std::runtime_error(error.c_str());
-                } else {
-                    // Do nothing - field is currenly on top of the stack
-                }
-             */
-
         }
         /**
          * Opens standard Lua libraries while stopping Garbage collector to optimize performance
